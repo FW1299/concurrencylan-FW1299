@@ -27,6 +27,8 @@ typedef struct {
     // YOU MUST USE buffer TO STORE YOUR BUFFERED CHANNEL MESSAGES
     buffer_t* buffer;
     pthread_mutex_t* mutex;
+    sem_t* empty;
+    sem_t* full;
     char alive_flag;
 
     /* ADD ANY STRUCT ENTRIES YOU NEED HERE */

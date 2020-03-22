@@ -9,6 +9,8 @@ channel_t* channel_create(size_t size)
     channel->buffer = buffer_create(size);
     channel->alive_flag=1;
     pthread_mutex_init(channel->mutex, NULL);
+    sem_init(channel->empty, 1, 0);
+    sem_init(channel->full, 1, (unsigned int)size);
     return channel;
 }
 
@@ -21,12 +23,15 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
+    sem_wait(channel->full);
     pthread_mutex_lock(channel->mutex);
     if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
         pthread_mutex_unlock(channel->mutex);
+        sem_post(channel->empty);
         return SUCCESS;
     }
     pthread_mutex_unlock(channel->mutex);
+    sem_post(channel->full);
     return GEN_ERROR;
 }
 
@@ -39,12 +44,15 @@ enum channel_status channel_send(channel_t *channel, void* data)
 enum channel_status channel_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
+    sem_wait(channel->empty);
     pthread_mutex_lock(channel->mutex);
     if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
         pthread_mutex_unlock(channel->mutex);
+        sem_post(channel->full);
         return SUCCESS;
     }
     pthread_mutex_unlock(channel->mutex);
+    sem_post(channel->empty);
     return GEN_ERROR;
 }
 
@@ -57,9 +65,16 @@ enum channel_status channel_receive(channel_t* channel, void** data)
 enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 {
     /* IMPLEMENT THIS */
+    if(sem_trywait(channel->full)==11)      //EAGAIN, i used EAGAIN, but it tell me it's undeclear
+        return CHANNEL_FULL;
+    pthread_mutex_lock(channel->mutex);
     if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
+        pthread_mutex_unlock(channel->mutex);
+        sem_post(channel->empty);
         return SUCCESS;
     }
+    pthread_mutex_unlock(channel->mutex);
+    sem_post(channel->full);
     return GEN_ERROR;
 }
 
@@ -72,9 +87,16 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 enum channel_status channel_non_blocking_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
+    if(sem_trywait(channel->empty)==11)     //EAGAIN
+        return CHANNEL_EMPTY;
+    pthread_mutex_lock(channel->mutex);
     if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
+        pthread_mutex_unlock(channel->mutex);
+        sem_post(channel->full);
         return SUCCESS;
     }
+    pthread_mutex_unlock(channel->mutex);
+    sem_post(channel->empty);
     return GEN_ERROR;
 }
 
