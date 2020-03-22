@@ -23,16 +23,19 @@ channel_t* channel_create(size_t size)
 enum channel_status channel_send(channel_t *channel, void* data)
 {
     /* IMPLEMENT THIS */
-    sem_wait(channel->full);
-    pthread_mutex_lock(channel->mutex);
-    if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
+    if(channel->alive_flag){
+        sem_wait(channel->full);
+        pthread_mutex_lock(channel->mutex);
+        if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
+            pthread_mutex_unlock(channel->mutex);
+            sem_post(channel->empty);
+            return SUCCESS;
+        }
         pthread_mutex_unlock(channel->mutex);
-        sem_post(channel->empty);
-        return SUCCESS;
+        sem_post(channel->full);
+        return GEN_ERROR;
     }
-    pthread_mutex_unlock(channel->mutex);
-    sem_post(channel->full);
-    return GEN_ERROR;
+    return CLOSED_ERROR;
 }
 
 // Reads data from the given channel and stores it in the function’s input parameter, data (Note that it is a double pointer).
@@ -44,16 +47,19 @@ enum channel_status channel_send(channel_t *channel, void* data)
 enum channel_status channel_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
-    sem_wait(channel->empty);
-    pthread_mutex_lock(channel->mutex);
-    if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
+    if(channel->alive_flag){
+        sem_wait(channel->empty);
+        pthread_mutex_lock(channel->mutex);
+        if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
+            pthread_mutex_unlock(channel->mutex);
+            sem_post(channel->full);
+            return SUCCESS;
+        }
         pthread_mutex_unlock(channel->mutex);
-        sem_post(channel->full);
-        return SUCCESS;
+        sem_post(channel->empty);
+        return GEN_ERROR;
     }
-    pthread_mutex_unlock(channel->mutex);
-    sem_post(channel->empty);
-    return GEN_ERROR;
+    return CLOSED_ERROR;
 }
 
 // Writes data to the given channel
@@ -65,17 +71,20 @@ enum channel_status channel_receive(channel_t* channel, void** data)
 enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 {
     /* IMPLEMENT THIS */
-    if(sem_trywait(channel->full)==11)      //EAGAIN, i used EAGAIN, but it tell me it's undeclear
-        return CHANNEL_FULL;
-    pthread_mutex_lock(channel->mutex);
-    if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
+    if(channel->alive_flag){
+        if(sem_trywait(channel->full)==11)      //EAGAIN, i used EAGAIN, but it tell me it's undeclear
+            return CHANNEL_FULL;
+        pthread_mutex_lock(channel->mutex);
+        if(buffer_add(channel->buffer, data)==BUFFER_SUCCESS){
+            pthread_mutex_unlock(channel->mutex);
+            sem_post(channel->empty);
+            return SUCCESS;
+        }
         pthread_mutex_unlock(channel->mutex);
-        sem_post(channel->empty);
-        return SUCCESS;
+        sem_post(channel->full);
+        return GEN_ERROR;
     }
-    pthread_mutex_unlock(channel->mutex);
-    sem_post(channel->full);
-    return GEN_ERROR;
+    return CLOSED_ERROR;
 }
 
 // Reads data from the given channel and stores it in the function’s input parameter data (Note that it is a double pointer)
@@ -87,17 +96,20 @@ enum channel_status channel_non_blocking_send(channel_t* channel, void* data)
 enum channel_status channel_non_blocking_receive(channel_t* channel, void** data)
 {
     /* IMPLEMENT THIS */
-    if(sem_trywait(channel->empty)==11)     //EAGAIN
-        return CHANNEL_EMPTY;
-    pthread_mutex_lock(channel->mutex);
-    if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
+    if(channel->alive_flag){
+        if(sem_trywait(channel->empty)==11)     //EAGAIN
+            return CHANNEL_EMPTY;
+        pthread_mutex_lock(channel->mutex);
+        if(buffer_remove(channel->buffer, data)==BUFFER_SUCCESS){
+            pthread_mutex_unlock(channel->mutex);
+            sem_post(channel->full);
+            return SUCCESS;
+        }
         pthread_mutex_unlock(channel->mutex);
-        sem_post(channel->full);
-        return SUCCESS;
+        sem_post(channel->empty);
+        return GEN_ERROR;
     }
-    pthread_mutex_unlock(channel->mutex);
-    sem_post(channel->empty);
-    return GEN_ERROR;
+    return CLOSED_ERROR;
 }
 
 // Closes the channel and informs all the blocking send/receive/select calls to return with CLOSED_ERROR
@@ -108,6 +120,7 @@ enum channel_status channel_non_blocking_receive(channel_t* channel, void** data
 enum channel_status channel_close(channel_t* channel)
 {
     /* IMPLEMENT THIS */
+    channel->alive_flag = 0;
     return SUCCESS;
 }
 
