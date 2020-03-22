@@ -121,6 +121,8 @@ enum channel_status channel_close(channel_t* channel)
 {
     /* IMPLEMENT THIS */
     channel->alive_flag = 0;
+    sem_close(channel->empty);
+    sem_close(channel->full);
     return SUCCESS;
 }
 
@@ -132,6 +134,11 @@ enum channel_status channel_close(channel_t* channel)
 enum channel_status channel_destroy(channel_t* channel)
 {
     /* IMPLEMENT THIS */
+    pthread_mutex_destroy(channel->mutex);
+    sem_destroy(channel->empty);
+    sem_destroy(channel->full);
+    buffer_free(channel->buffer);
+    free(channel);
     return SUCCESS;
 }
 
