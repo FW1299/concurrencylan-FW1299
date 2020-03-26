@@ -54,7 +54,7 @@ DEPS = $(ALL_OBJS:%.o=%.d)
 -include $(DEPS)
 
 clean:
-	-@rm $(TARGET) $(TARGET_SANITIZE) $(ALL_OBJS) $(DEPS) 2> /dev/null || true
+	-@rm *.log $(TARGET) $(TARGET_SANITIZE) $(ALL_OBJS) $(DEPS) 2> /dev/null || true
 
 test:
 	@chmod +x grade.py

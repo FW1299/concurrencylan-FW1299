@@ -29,6 +29,8 @@ typedef struct {
     pthread_mutex_t* mutex;
     sem_t* empty;
     sem_t* full;
+    sem_t* empty_close;
+    sem_t* full_close;
     char alive_flag;
 
     /* ADD ANY STRUCT ENTRIES YOU NEED HERE */
